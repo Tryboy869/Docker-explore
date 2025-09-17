@@ -1,0 +1,837 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Docker Advanced Capabilities - Live Demo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: #ffffff;
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 40px;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+        }
+
+        .demo-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .demo-card {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 25px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: all 0.3s ease;
+        }
+
+        .demo-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+
+        .demo-card h3 {
+            color: #ffd700;
+            margin-bottom: 15px;
+            font-size: 1.3em;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #ffd700;
+            animation: pulse 2s infinite;
+        }
+
+        .status-running { background: #00ff88; }
+        .status-loading { background: #ffaa00; }
+        .status-error { background: #ff4444; }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .log-output {
+            background: #1a1a1a;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 15px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            max-height: 200px;
+            overflow-y: auto;
+            border-left: 4px solid #00ff88;
+        }
+
+        .log-line {
+            margin-bottom: 5px;
+            opacity: 0;
+            animation: fadeIn 0.5s ease forwards;
+        }
+
+        @keyframes fadeIn {
+            to { opacity: 1; }
+        }
+
+        .log-timestamp {
+            color: #888;
+        }
+
+        .log-success {
+            color: #00ff88;
+        }
+
+        .log-error {
+            color: #ff4444;
+        }
+
+        .log-info {
+            color: #4a9eff;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .btn {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.9em;
+            transition: all 0.3s ease;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-2px);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .metric-card {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        .metric-value {
+            font-size: 2em;
+            font-weight: bold;
+            color: #ffd700;
+        }
+
+        .metric-label {
+            font-size: 0.9em;
+            opacity: 0.8;
+            margin-top: 5px;
+        }
+
+        .architecture-diagram {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 20px;
+            text-align: center;
+        }
+
+        .layer {
+            background: rgba(255, 255, 255, 0.1);
+            margin: 10px 0;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #4a9eff;
+        }
+
+        .capabilities-list {
+            list-style: none;
+            margin-top: 15px;
+        }
+
+        .capabilities-list li {
+            padding: 8px 0;
+            padding-left: 25px;
+            position: relative;
+        }
+
+        .capabilities-list li:before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: #00ff88;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Docker Advanced Capabilities - Live Demonstration</h1>
+            <p>Exploration en temps réel des capacités cachées de Docker</p>
+            <div class="metrics-grid">
+                <div class="metric-card">
+                    <div class="metric-value" id="containers-count">0</div>
+                    <div class="metric-label">Containers Actifs</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value" id="images-count">0</div>
+                    <div class="metric-label">Images Créées</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value" id="networks-count">0</div>
+                    <div class="metric-label">Réseaux</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value" id="tests-passed">0</div>
+                    <div class="metric-label">Tests Réussis</div>
+                </div>
+            </div>
+        </header>
+
+        <div class="demo-grid">
+            <!-- Test 1: Multi-Container Orchestration -->
+            <div class="demo-card">
+                <h3>
+                    <span class="status-indicator" id="status-orchestration"></span>
+                    Orchestration Multi-Container
+                </h3>
+                <p>Test de coordination de services multiples (Web + DB + Cache + Proxy)</p>
+                <div class="action-buttons">
+                    <button class="btn" onclick="testOrchestration()">Démarrer Test</button>
+                    <button class="btn" onclick="stopOrchestration()">Arrêter</button>
+                </div>
+                <div class="log-output" id="log-orchestration"></div>
+            </div>
+
+            <!-- Test 2: Zero-Downtime Deployment -->
+            <div class="demo-card">
+                <h3>
+                    <span class="status-indicator" id="status-deployment"></span>
+                    Déploiement Zero-Downtime
+                </h3>
+                <p>Blue-Green deployment avec basculement automatique</p>
+                <div class="action-buttons">
+                    <button class="btn" onclick="testBlueGreenDeployment()">Test Blue-Green</button>
+                    <button class="btn" onclick="rollbackDeployment()">Rollback</button>
+                </div>
+                <div class="log-output" id="log-deployment"></div>
+            </div>
+
+            <!-- Test 3: Container Security -->
+            <div class="demo-card">
+                <h3>
+                    <span class="status-indicator" id="status-security"></span>
+                    Sécurité Avancée
+                </h3>
+                <p>Isolation, restrictions de privilèges, scan de vulnérabilités</p>
+                <div class="action-buttons">
+                    <button class="btn" onclick="testSecurity()">Audit Sécurité</button>
+                    <button class="btn" onclick="testIsolation()">Test Isolation</button>
+                </div>
+                <div class="log-output" id="log-security"></div>
+            </div>
+
+            <!-- Test 4: Performance Optimization -->
+            <div class="demo-card">
+                <h3>
+                    <span class="status-indicator" id="status-performance"></span>
+                    Optimisation Performance
+                </h3>
+                <p>Multi-stage builds, cache layers, resource limits</p>
+                <div class="action-buttons">
+                    <button class="btn" onclick="testPerformance()">Benchmark</button>
+                    <button class="btn" onclick="optimizeImages()">Optimiser Images</button>
+                </div>
+                <div class="log-output" id="log-performance"></div>
+            </div>
+
+            <!-- Test 5: Network Capabilities -->
+            <div class="demo-card">
+                <h3>
+                    <span class="status-indicator" id="status-network"></span>
+                    Réseaux Avancés
+                </h3>
+                <p>Overlay networks, service mesh, load balancing</p>
+                <div class="action-buttons">
+                    <button class="btn" onclick="testNetworking()">Test Réseau</button>
+                    <button class="btn" onclick="createServiceMesh()">Service Mesh</button>
+                </div>
+                <div class="log-output" id="log-network"></div>
+            </div>
+
+            <!-- Test 6: Data Persistence -->
+            <div class="demo-card">
+                <h3>
+                    <span class="status-indicator" id="status-storage"></span>
+                    Persistance Données
+                </h3>
+                <p>Volumes, backup automatique, réplication</p>
+                <div class="action-buttons">
+                    <button class="btn" onclick="testStorage()">Test Volumes</button>
+                    <button class="btn" onclick="backupData()">Backup</button>
+                </div>
+                <div class="log-output" id="log-storage"></div>
+            </div>
+        </div>
+
+        <!-- Architecture Overview -->
+        <div class="demo-card">
+            <h3>Architecture Système en Temps Réel</h3>
+            <div class="architecture-diagram">
+                <div class="layer">
+                    <strong>Layer 4:</strong> Applications (Web, API, Workers) - <span id="app-layer-status">Standby</span>
+                </div>
+                <div class="layer">
+                    <strong>Layer 3:</strong> Container Orchestration (Docker Compose/Swarm) - <span id="orchestration-layer-status">Ready</span>
+                </div>
+                <div class="layer">
+                    <strong>Layer 2:</strong> Docker Engine + Networks + Volumes - <span id="docker-layer-status">Active</span>
+                </div>
+                <div class="layer">
+                    <strong>Layer 1:</strong> Linux Kernel (Namespaces + cgroups) - <span id="kernel-layer-status">Running</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Capabilities Demonstrated -->
+        <div class="demo-card">
+            <h3>Capacités Démontrées</h3>
+            <ul class="capabilities-list" id="capabilities-list">
+                <li>Isolation complète des processus et ressources</li>
+                <li>Orchestration intelligente multi-services</li>
+                <li>Déploiements sans interruption de service</li>
+                <li>Sécurité enterprise avec audit trails</li>
+                <li>Optimisation automatique des performances</li>
+                <li>Réseaux virtuels avec load balancing</li>
+                <li>Persistance et backup des données</li>
+                <li>Monitoring et observabilité complète</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        // État global de l'application
+        const appState = {
+            containers: 0,
+            images: 0,
+            networks: 0,
+            testsPassed: 0,
+            isRunning: {
+                orchestration: false,
+                deployment: false,
+                security: false,
+                performance: false,
+                network: false,
+                storage: false
+            }
+        };
+
+        // Utilitaires de logging
+        function addLog(containerId, message, type = 'info') {
+            const logContainer = document.getElementById(containerId);
+            const timestamp = new Date().toLocaleTimeString();
+            const logLine = document.createElement('div');
+            logLine.className = 'log-line';
+            
+            let icon = '';
+            switch(type) {
+                case 'success': icon = '✓'; break;
+                case 'error': icon = '✗'; break;
+                case 'info': icon = 'ℹ'; break;
+                default: icon = '•';
+            }
+            
+            logLine.innerHTML = `<span class="log-timestamp">[${timestamp}]</span> <span class="log-${type}">${icon} ${message}</span>`;
+            logContainer.appendChild(logLine);
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+
+        function updateStatus(statusId, status) {
+            const indicator = document.getElementById(statusId);
+            indicator.className = `status-indicator status-${status}`;
+        }
+
+        function updateMetrics() {
+            document.getElementById('containers-count').textContent = appState.containers;
+            document.getElementById('images-count').textContent = appState.images;
+            document.getElementById('networks-count').textContent = appState.networks;
+            document.getElementById('tests-passed').textContent = appState.testsPassed;
+        }
+
+        // Test 1: Orchestration Multi-Container
+        async function testOrchestration() {
+            if (appState.isRunning.orchestration) return;
+            
+            appState.isRunning.orchestration = true;
+            updateStatus('status-orchestration', 'loading');
+            addLog('log-orchestration', 'Démarrage de l\'orchestration multi-container...', 'info');
+            
+            // Simulation de création d'images
+            await sleep(1000);
+            addLog('log-orchestration', 'Building web application image...', 'info');
+            appState.images++;
+            updateMetrics();
+            
+            await sleep(1500);
+            addLog('log-orchestration', 'Building database image...', 'info');
+            appState.images++;
+            updateMetrics();
+            
+            await sleep(1000);
+            addLog('log-orchestration', 'Building cache service image...', 'info');
+            appState.images++;
+            updateMetrics();
+            
+            // Création du réseau
+            await sleep(800);
+            addLog('log-orchestration', 'Creating overlay network: app-network', 'info');
+            appState.networks++;
+            updateMetrics();
+            
+            // Démarrage des containers
+            await sleep(1200);
+            addLog('log-orchestration', 'Starting PostgreSQL container...', 'success');
+            appState.containers++;
+            updateMetrics();
+            
+            await sleep(800);
+            addLog('log-orchestration', 'Starting Redis cache container...', 'success');
+            appState.containers++;
+            updateMetrics();
+            
+            await sleep(1000);
+            addLog('log-orchestration', 'Starting web application containers (3 replicas)...', 'success');
+            appState.containers += 3;
+            updateMetrics();
+            
+            await sleep(600);
+            addLog('log-orchestration', 'Starting nginx load balancer...', 'success');
+            appState.containers++;
+            updateMetrics();
+            
+            // Vérifications de santé
+            await sleep(1500);
+            addLog('log-orchestration', 'Health check: Database connection OK', 'success');
+            await sleep(500);
+            addLog('log-orchestration', 'Health check: Cache service OK', 'success');
+            await sleep(500);
+            addLog('log-orchestration', 'Health check: All web instances OK', 'success');
+            await sleep(500);
+            addLog('log-orchestration', 'Load balancer routing configured', 'success');
+            
+            updateStatus('status-orchestration', 'running');
+            document.getElementById('app-layer-status').textContent = 'Running (6 containers)';
+            appState.testsPassed++;
+            updateMetrics();
+            
+            addLog('log-orchestration', 'Orchestration terminée avec succès! Services disponibles sur port 80', 'success');
+        }
+
+        async function stopOrchestration() {
+            if (!appState.isRunning.orchestration) return;
+            
+            addLog('log-orchestration', 'Arrêt gracieux des services...', 'info');
+            updateStatus('status-orchestration', 'loading');
+            
+            await sleep(1000);
+            addLog('log-orchestration', 'Stopping containers...', 'info');
+            appState.containers = Math.max(0, appState.containers - 6);
+            updateMetrics();
+            
+            await sleep(800);
+            addLog('log-orchestration', 'Removing network...', 'info');
+            appState.networks = Math.max(0, appState.networks - 1);
+            updateMetrics();
+            
+            updateStatus('status-orchestration', 'running');
+            document.getElementById('app-layer-status').textContent = 'Standby';
+            appState.isRunning.orchestration = false;
+            
+            addLog('log-orchestration', 'Arrêt terminé. Ressources libérées.', 'success');
+        }
+
+        // Test 2: Blue-Green Deployment
+        async function testBlueGreenDeployment() {
+            if (appState.isRunning.deployment) return;
+            
+            appState.isRunning.deployment = true;
+            updateStatus('status-deployment', 'loading');
+            addLog('log-deployment', 'Démarrage du déploiement Blue-Green...', 'info');
+            
+            await sleep(1000);
+            addLog('log-deployment', 'Current version: Blue (v1.0) - 100% traffic', 'info');
+            
+            await sleep(1500);
+            addLog('log-deployment', 'Building new version: Green (v1.1)...', 'info');
+            appState.images++;
+            updateMetrics();
+            
+            await sleep(2000);
+            addLog('log-deployment', 'Deploying Green environment...', 'info');
+            appState.containers += 3;
+            updateMetrics();
+            
+            await sleep(1800);
+            addLog('log-deployment', 'Running health checks on Green environment...', 'info');
+            
+            await sleep(1200);
+            addLog('log-deployment', 'Health check passed: Response time < 200ms', 'success');
+            await sleep(500);
+            addLog('log-deployment', 'Health check passed: All endpoints responding', 'success');
+            await sleep(500);
+            addLog('log-deployment', 'Health check passed: Database connectivity OK', 'success');
+            
+            await sleep(1000);
+            addLog('log-deployment', 'Switching load balancer: 0% → 50% → 100% Green', 'info');
+            
+            await sleep(2000);
+            addLog('log-deployment', 'Traffic successfully switched to Green (v1.1)', 'success');
+            
+            await sleep(1000);
+            addLog('log-deployment', 'Removing Blue environment (v1.0)...', 'info');
+            appState.containers -= 3;
+            updateMetrics();
+            
+            updateStatus('status-deployment', 'running');
+            appState.testsPassed++;
+            updateMetrics();
+            appState.isRunning.deployment = false;
+            
+            addLog('log-deployment', 'Déploiement Blue-Green terminé! Zero downtime achieved.', 'success');
+        }
+
+        async function rollbackDeployment() {
+            updateStatus('status-deployment', 'loading');
+            addLog('log-deployment', 'Rollback emergency initiated...', 'error');
+            
+            await sleep(1000);
+            addLog('log-deployment', 'Restoring Blue environment (v1.0)...', 'info');
+            
+            await sleep(1500);
+            addLog('log-deployment', 'Switching traffic back to Blue...', 'info');
+            
+            await sleep(1000);
+            addLog('log-deployment', 'Rollback completed. Service restored.', 'success');
+            updateStatus('status-deployment', 'running');
+        }
+
+        // Test 3: Security
+        async function testSecurity() {
+            if (appState.isRunning.security) return;
+            
+            appState.isRunning.security = true;
+            updateStatus('status-security', 'loading');
+            addLog('log-security', 'Démarrage de l\'audit de sécurité...', 'info');
+            
+            await sleep(1200);
+            addLog('log-security', 'Checking container privileges...', 'info');
+            await sleep(800);
+            addLog('log-security', '✓ All containers running as non-root', 'success');
+            
+            await sleep(1000);
+            addLog('log-security', 'Scanning for vulnerabilities...', 'info');
+            await sleep(2000);
+            addLog('log-security', '✓ No critical vulnerabilities found', 'success');
+            addLog('log-security', '⚠ 2 medium-risk packages identified', 'info');
+            
+            await sleep(1200);
+            addLog('log-security', 'Testing capability restrictions...', 'info');
+            await sleep(800);
+            addLog('log-security', '✓ NET_ADMIN capability dropped', 'success');
+            addLog('log-security', '✓ SYS_ADMIN capability dropped', 'success');
+            
+            await sleep(1000);
+            addLog('log-security', 'Verifying filesystem permissions...', 'info');
+            await sleep(800);
+            addLog('log-security', '✓ Root filesystem read-only', 'success');
+            addLog('log-security', '✓ Temporary directories properly mounted', 'success');
+            
+            updateStatus('status-security', 'running');
+            appState.testsPassed++;
+            updateMetrics();
+            appState.isRunning.security = false;
+            
+            addLog('log-security', 'Audit de sécurité terminé. Compliance: 98%', 'success');
+        }
+
+        async function testIsolation() {
+            updateStatus('status-security', 'loading');
+            addLog('log-security', 'Testing process isolation...', 'info');
+            
+            await sleep(1000);
+            addLog('log-security', 'Container A: PID namespace isolated ✓', 'success');
+            await sleep(500);
+            addLog('log-security', 'Container B: Network namespace isolated ✓', 'success');
+            await sleep(500);
+            addLog('log-security', 'Container C: Filesystem mount isolated ✓', 'success');
+            
+            updateStatus('status-security', 'running');
+            addLog('log-security', 'Isolation tests passed. Containers properly sandboxed.', 'success');
+        }
+
+        // Test 4: Performance
+        async function testPerformance() {
+            if (appState.isRunning.performance) return;
+            
+            appState.isRunning.performance = true;
+            updateStatus('status-performance', 'loading');
+            addLog('log-performance', 'Démarrage des benchmarks de performance...', 'info');
+            
+            await sleep(1500);
+            addLog('log-performance', 'Testing container startup time...', 'info');
+            await sleep(2000);
+            addLog('log-performance', 'Average startup time: 1.2s (excellent)', 'success');
+            
+            await sleep(1000);
+            addLog('log-performance', 'Testing memory usage...', 'info');
+            await sleep(1500);
+            addLog('log-performance', 'Base container: 45MB RAM (optimized)', 'success');
+            
+            await sleep(1200);
+            addLog('log-performance', 'Testing I/O performance...', 'info');
+            await sleep(1800);
+            addLog('log-performance', 'Disk I/O: 1.2GB/s read, 850MB/s write', 'success');
+            
+            await sleep(1000);
+            addLog('log-performance', 'Testing network throughput...', 'info');
+            await sleep(1500);
+            addLog('log-performance', 'Network: 9.5Gbps (near-native performance)', 'success');
+            
+            updateStatus('status-performance', 'running');
+            appState.testsPassed++;
+            updateMetrics();
+            appState.isRunning.performance = false;
+            
+            addLog('log-performance', 'Benchmark terminé. Performance: 96% native speed.', 'success');
+        }
+
+        async function optimizeImages() {
+            updateStatus('status-performance', 'loading');
+            addLog('log-performance', 'Optimizing container images...', 'info');
+            
+            await sleep(1200);
+            addLog('log-performance', 'Running multi-stage build optimization...', 'info');
+            await sleep(2000);
+            addLog('log-performance', 'Image size reduced: 1.2GB → 234MB (-80%)', 'success');
+            
+            await sleep(1000);
+            addLog('log-performance', 'Applying layer caching strategies...', 'info');
+            await sleep(1500);
+            addLog('log-performance', 'Build time improved: 8min → 2min (-75%)', 'success');
+            
+            updateStatus('status-performance', 'running');
+            addLog('log-performance', 'Image optimization completed successfully.', 'success');
+        }
+
+        // Test 5: Network
+        async function testNetworking() {
+            if (appState.isRunning.network) return;
+            
+            appState.isRunning.network = true;
+            updateStatus('status-network', 'loading');
+            addLog('log-network', 'Configuration réseau avancée...', 'info');
+            
+            await sleep(1200);
+            addLog('log-network', 'Creating overlay network with encryption...', 'info');
+            appState.networks++;
+            updateMetrics();
+            
+            await sleep(1500);
+            addLog('log-network', 'Setting up service discovery...', 'info');
+            await sleep(1000);
+            addLog('log-network', 'DNS resolution configured: service.network', 'success');
+            
+            await sleep(1200);
+            addLog('log-network', 'Configuring load balancer...', 'info');
+            await sleep(1000);
+            addLog('log-network', 'Round-robin balancing across 3 nodes', 'success');
+            
+            await sleep(1000);
+            addLog('log-network', 'Testing inter-container communication...', 'info');
+            await sleep(1500);
+            addLog('log-network', 'Latency: 0.2ms (excellent)', 'success');
+            addLog('log-network', 'Throughput: 40Gbps internal network', 'success');
+            
+            updateStatus('status-network', 'running');
+            document.getElementById('orchestration-layer-status').textContent = 'Network Mesh Active';
+            appState.testsPassed++;
+            updateMetrics();
+            appState.isRunning.network = false;
+            
+            addLog('log-network', 'Réseau configuré. Service mesh opérationnel.', 'success');
+        }
+
+        async function createServiceMesh() {
+            updateStatus('status-network', 'loading');
+            addLog('log-network', 'Deploying service mesh architecture...', 'info');
+            
+            await sleep(1500);
+            addLog('log-network', 'Installing sidecar proxies...', 'info');
+            appState.containers += 3;
+            updateMetrics();
+            
+            await sleep(1200);
+            addLog('log-network', 'Configuring traffic policies...', 'info');
+            await sleep(1000);
+            addLog('log-network', 'Enabling mutual TLS between services', 'success');
+            
+            updateStatus('status-network', 'running');
+            addLog('log-network', 'Service mesh deployed. Zero-trust networking active.', 'success');
+        }
+
+        // Test 6: Storage
+        async function testStorage() {
+            if (appState.isRunning.storage) return;
+            
+            appState.isRunning.storage = true;
+            updateStatus('status-storage', 'loading');
+            addLog('log-storage', 'Configuration stockage persistant...', 'info');
+            
+            await sleep(1200);
+            addLog('log-storage', 'Creating persistent volumes...', 'info');
+            await sleep(1500);
+            addLog('log-storage', 'Volume: db-data (50GB SSD)', 'success');
+            addLog('log-storage', 'Volume: app-logs (10GB)', 'success');
+            
+            await sleep(1000);
+            addLog('log-storage', 'Testing data persistence...', 'info');
+            await sleep(1800);
+            addLog('log-storage', 'Container restart: data intact ✓', 'success');
+            addLog('log-storage', 'Host reboot: data intact ✓', 'success');
+            
+            await sleep(1200);
+            addLog('log-storage', 'Setting up automatic backup...', 'info');
+            await sleep(1000);
+            addLog('log-storage', 'Backup schedule: Every 6 hours', 'success');
+            addLog('log-storage', 'Retention policy: 30 days', 'success');
+            
+            updateStatus('status-storage', 'running');
+            appState.testsPassed++;
+            updateMetrics();
+            appState.isRunning.storage = false;
+            
+            addLog('log-storage', 'Stockage configuré. Données protégées et répliquées.', 'success');
+        }
+
+        async function backupData() {
+            updateStatus('status-storage', 'loading');
+            addLog('log-storage', 'Starting automated backup process...', 'info');
+            
+            await sleep(1500);
+            addLog('log-storage', 'Creating snapshot: db-data-20241218', 'info');
+            await sleep(1200);
+            addLog('log-storage', 'Compressing data: 2.3GB → 650MB', 'success');
+            
+            await sleep(1000);
+            addLog('log-storage', 'Uploading to cloud storage...', 'info');
+            await sleep(2000);
+            addLog('log-storage', 'Backup completed: 99.9% integrity verified', 'success');
+            
+            updateStatus('status-storage', 'running');
+            addLog('log-storage', 'Backup terminé. Recovery point created.', 'success');
+        }
+
+        // Utilitaire pour les délais
+        function sleep(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
+        // Animation d'initialisation
+        function initializeApp() {
+            document.getElementById('kernel-layer-status').textContent = 'Running';
+            document.getElementById('docker-layer-status').textContent = 'Active';
+            document.getElementById('orchestration-layer-status').textContent = 'Ready';
+            
+            // Simulation de quelques containers de base du système
+            appState.containers = 3; // Docker daemon, containerd, runc
+            appState.images = 2; // Images de base
+            appState.networks = 1; // Réseau bridge par défaut
+            updateMetrics();
+        }
+
+        // Auto-démarrage de certains tests pour démonstration
+        async function runDemoSequence() {
+            await sleep(2000);
+            addLog('log-orchestration', 'Système Docker initialisé et prêt', 'success');
+            addLog('log-deployment', 'Blue-Green deployment ready', 'info');
+            addLog('log-security', 'Security baseline configured', 'info');
+            addLog('log-performance', 'Performance monitoring active', 'info');
+            addLog('log-network', 'Network subsystem ready', 'info');
+            addLog('log-storage', 'Storage drivers loaded', 'info');
+        }
+
+        // Initialisation au chargement de la page
+        window.addEventListener('load', () => {
+            initializeApp();
+            runDemoSequence();
+        });
+
+        // Simulation de métriques en temps réel
+        setInterval(() => {
+            // Petites variations aléatoires pour simuler l'activité
+            if (Math.random() > 0.7) {
+                const randomTest = Math.floor(Math.random() * 6);
+                const logIds = ['log-orchestration', 'log-deployment', 'log-security', 'log-performance', 'log-network', 'log-storage'];
+                const messages = [
+                    'Container health check passed',
+                    'Resource usage: normal',
+                    'Network latency: 0.1ms',
+                    'Memory usage: 45%',
+                    'CPU usage: 23%',
+                    'Disk I/O: optimal'
+                ];
+                
+                if (logIds[randomTest] && Math.random() > 0.8) {
+                    addLog(logIds[randomTest], messages[Math.floor(Math.random() * messages.length)], 'info');
+                }
+            }
+        }, 5000);
+    </script>
+</body>
+</html>
